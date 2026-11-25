@@ -3,7 +3,7 @@
 // ==========================================
 (function () {
     const PARTICLE_COUNT = 80;
-    const LOVE_TEXTS = ['I love you', 'i love u', 'love', 'ily', '♡', 'luv u', 'sayang', 'cinta'];
+    const LOVE_TEXTS = ['I love you', 'fitria', 'pangestuti', 'ily', '♡', 'luv u', 'fitria', 'pangestuti'];
 
     // Parametric heart shape formula
     function heartX(t) {
@@ -175,7 +175,7 @@
         const pinPopupClose = document.getElementById('pin-popup-close');
 
         // DEFAULT PIN: Silakan ubah angka ini jika ingin PIN lain
-        const SECRET_PIN = "2104";
+        const SECRET_PIN = "2612";
 
         let pinAttempt = 0;
         let popupTimeout = null;
@@ -424,7 +424,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // C. JIKA YANG DIKLIK ADALAH POLAROID
                 else if (this.classList.contains('polaroid')) {
                     modalImg.src = this.querySelector('img').src;
-                    modalImg.style.aspectRatio = "1 / 1";
+                    modalImg.style.aspectRatio = "3 / 4";
                 }
                 // D. JIKA YANG DIKLIK ADALAH GALERI CINTA
                 else {
@@ -901,6 +901,9 @@ function tutupHalamanLilin() {
         holdInterval = null;
     }
 
+    // Hentikan animasi kembang api agar hemat resource
+    hentikanKembangApi();
+
     // Hapus event listeners
     hapusHoldListeners(candlePage);
 
@@ -928,11 +931,11 @@ function tutupHalamanLilin() {
 
         if (progressBar) progressBar.classList.remove('show-bar');
         if (progressFill) progressFill.style.width = '0%';
-        if (cakeContainer) cakeContainer.classList.remove('holding');
+        if (cakeContainer) cakeContainer.classList.remove('holding', 'candles-out');
 
         // Reset api lilin
         flames.forEach(flame => {
-            flame.classList.remove('dimming', 'extinguished');
+            flame.classList.remove('blowing', 'dimming', 'extinguished');
             flame.style.animationDuration = '';
         });
 
@@ -1086,9 +1089,9 @@ function tampilkanTahap1() {
         msg.className = 'candle-message show-msg';
     }
 
-    // Api bergoyang lebih kencang tapi belum mati
+    // Api bergoyang lebih kencang tertiup angin tapi belum mati
     flames.forEach(flame => {
-        flame.style.animationDuration = '0.15s';
+        flame.classList.add('blowing');
     });
 }
 
@@ -1116,6 +1119,7 @@ function tampilkanTahap3() {
     const flames = document.querySelectorAll('.candle-flame');
     const candlePage = document.getElementById('candle-page');
     const progressBar = document.getElementById('hold-progress-bar');
+    const cakeContainer = document.querySelector('.cake-container');
 
     // Sembunyikan hint & progress
     if (tapHint) {
@@ -1132,13 +1136,19 @@ function tampilkanTahap3() {
     // Matikan api satu per satu
     flames.forEach((flame, index) => {
         setTimeout(() => {
-            flame.classList.remove('dimming');
+            flame.classList.remove('blowing', 'dimming');
             flame.classList.add('extinguished');
         }, index * 400);
     });
 
-    // Setelah semua api mati
+    // Redupkan pantulan cahaya hangat lilin di sekitar kue
     setTimeout(() => {
+        if (cakeContainer) cakeContainer.classList.add('candles-out');
+    }, flames.length * 400);
+
+    // Setelah semua api mati: luncurkan kembang api ringan + confetti secukupnya
+    setTimeout(() => {
+        mulaiKembangApi();
         buatConfetti();
 
         setTimeout(() => {
@@ -1146,24 +1156,246 @@ function tampilkanTahap3() {
                 msg.textContent = 'Semoga apa yang kamu doakan dan inginkan segera terlaksana yaa, Aamiin 🤍';
                 msg.className = 'candle-message show-msg final-msg';
             }
-        }, 600);
-    }, flames.length * 400 + 500);
+        }, 550);
+    }, flames.length * 400 + 450);
 
     // Hapus event listeners karena sudah selesai
     if (candlePage) hapusHoldListeners(candlePage);
 }
 
+// ==========================================
+// KEMBANG API RINGAN & ANTI-LAG (2D CANVAS)
+// ==========================================
+let fwAnimationId = null;
+let fwLaunchTimers = [];
+let fwResizeHandler = null;
+
+function hentikanKembangApi() {
+    if (fwAnimationId) {
+        cancelAnimationFrame(fwAnimationId);
+        fwAnimationId = null;
+    }
+    fwLaunchTimers.forEach(t => clearTimeout(t));
+    fwLaunchTimers = [];
+
+    if (fwResizeHandler) {
+        window.removeEventListener('resize', fwResizeHandler);
+        fwResizeHandler = null;
+    }
+
+    const canvas = document.getElementById('fireworks-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+function mulaiKembangApi() {
+    hentikanKembangApi();
+
+    const canvas = document.getElementById('fireworks-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Batasi DPR maksimal 1.5 agar sangat ringan di layar HP resolusi tinggi
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    let cw = window.innerWidth;
+    let ch = window.innerHeight;
+
+    function sesuaikanUkuranCanvas() {
+        cw = window.innerWidth;
+        ch = window.innerHeight;
+        canvas.width = Math.floor(cw * dpr);
+        canvas.height = Math.floor(ch * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    sesuaikanUkuranCanvas();
+
+    fwResizeHandler = sesuaikanUkuranCanvas;
+    window.addEventListener('resize', fwResizeHandler);
+
+    const palettes = [
+        ['#ffb6c1', '#ff758c', '#fff0f5', '#ffd700'], // Baby Pink & Gold
+        ['#ffd700', '#ffe999', '#ffffff', '#ff9ebb'], // Champagne Gold
+        ['#d6b4fc', '#a58dff', '#ffb6d9', '#ffffff'], // Dreamy Lavender & Rose
+        ['#8ef6e4', '#a8d8ff', '#ffffff', '#ffd6e8']  // Pastel Sky & Pearl
+    ];
+
+    const rockets = [];
+    const sparks = [];
+    const MAX_SPARKS = 180; // Batas partikel ketat agar selalu 60fps tanpa lag
+    let semuaSudahMeluncur = false;
+
+    function luncurkanRoket(xRatio, yTargetRatio, isHeart) {
+        const startX = cw * xRatio;
+        const startY = ch + 10;
+        const targetY = ch * yTargetRatio;
+        const colors = palettes[Math.floor(Math.random() * palettes.length)];
+
+        rockets.push({
+            x: startX,
+            y: startY,
+            prevX: startX,
+            prevY: startY,
+            vx: (Math.random() - 0.5) * 1.1,
+            vy: -(7.5 + Math.random() * 2.2),
+            targetY: targetY,
+            color: colors[0],
+            palette: colors,
+            isHeart: Boolean(isHeart)
+        });
+    }
+
+    function ledakkanRoket(r) {
+        const count = r.isHeart ? 34 : 36;
+        // Jika partikel hampir penuh, kurangi jumlah partikel baru
+        const available = Math.max(12, Math.min(count, MAX_SPARKS - sparks.length));
+
+        for (let i = 0; i < available; i++) {
+            const color = r.palette[i % r.palette.length];
+            let vx, vy;
+
+            if (r.isHeart) {
+                const t = (i / available) * Math.PI * 2;
+                const scale = 0.19;
+                vx = scale * 16 * Math.pow(Math.sin(t), 3);
+                vy = -scale * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+            } else {
+                const angle = (i / available) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+                const speed = (i % 2 === 0 ? 3.2 : 1.9) + Math.random() * 1.4;
+                vx = Math.cos(angle) * speed;
+                vy = Math.sin(angle) * speed;
+            }
+
+            sparks.push({
+                x: r.x,
+                y: r.y,
+                prevX: r.x,
+                prevY: r.y,
+                vx: vx,
+                vy: vy,
+                alpha: 1,
+                decay: 0.014 + Math.random() * 0.008,
+                size: 1.7 + Math.random() * 1.1,
+                color: color
+            });
+        }
+    }
+
+    // Jadwal peluncuran kembang api yang elegan & tidak berlebihan (~9.5 detik)
+    const jadwal = [
+        { delay: 0,    x: 0.25, y: 0.26, heart: false },
+        { delay: 350,  x: 0.75, y: 0.24, heart: false },
+        { delay: 1100, x: 0.50, y: 0.20, heart: true  },
+        { delay: 1900, x: 0.20, y: 0.32, heart: false },
+        { delay: 2500, x: 0.80, y: 0.28, heart: false },
+        { delay: 3400, x: 0.36, y: 0.22, heart: true  },
+        { delay: 4200, x: 0.66, y: 0.25, heart: false },
+        { delay: 5100, x: 0.24, y: 0.24, heart: false },
+        { delay: 5800, x: 0.76, y: 0.22, heart: true  },
+        { delay: 6800, x: 0.50, y: 0.18, heart: false },
+        { delay: 7600, x: 0.32, y: 0.27, heart: false },
+        { delay: 8200, x: 0.68, y: 0.25, heart: true  }
+    ];
+
+    jadwal.forEach((item, idx) => {
+        const timer = setTimeout(() => {
+            luncurkanRoket(item.x, item.y, item.heart);
+            if (idx === jadwal.length - 1) {
+                semuaSudahMeluncur = true;
+            }
+        }, item.delay);
+        fwLaunchTimers.push(timer);
+    });
+
+    function renderFrame() {
+        // Pudarkan jejak frame sebelumnya secara transparan (tanpa shadowBlur agar ringan)
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+        ctx.fillRect(0, 0, cw, ch);
+
+        // Additive blending membuat percikan bercahaya alami tanpa beban GPU
+        ctx.globalCompositeOperation = 'lighter';
+
+        // Update & gambar roket peluncur
+        for (let i = rockets.length - 1; i >= 0; i--) {
+            const r = rockets[i];
+            r.prevX = r.x;
+            r.prevY = r.y;
+            r.x += r.vx;
+            r.y += r.vy;
+            r.vy += 0.09; // gravitasi ringan saat naik
+
+            ctx.beginPath();
+            ctx.moveTo(r.prevX, r.prevY);
+            ctx.lineTo(r.x, r.y);
+            ctx.strokeStyle = r.color;
+            ctx.lineWidth = 2.2;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            if (r.y <= r.targetY || r.vy >= -1) {
+                ledakkanRoket(r);
+                rockets.splice(i, 1);
+            }
+        }
+
+        // Update & gambar percikan kembang api
+        for (let i = sparks.length - 1; i >= 0; i--) {
+            const s = sparks[i];
+            s.prevX = s.x;
+            s.prevY = s.y;
+            s.vx *= 0.965; // hambatan udara halus
+            s.vy *= 0.965;
+            s.vy += 0.045; // gravitasi turun perlahan
+            s.x += s.vx;
+            s.y += s.vy;
+            s.alpha -= s.decay;
+
+            if (s.alpha <= 0.02) {
+                sparks.splice(i, 1);
+                continue;
+            }
+
+            ctx.globalAlpha = s.alpha;
+            ctx.beginPath();
+            ctx.moveTo(s.prevX, s.prevY);
+            ctx.lineTo(s.x, s.y);
+            ctx.strokeStyle = s.color;
+            ctx.lineWidth = s.size;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        }
+
+        ctx.globalAlpha = 1;
+
+        // Matikan loop otomatis setelah semua kembang api selesai padam
+        if (semuaSudahMeluncur && rockets.length === 0 && sparks.length === 0) {
+            ctx.clearRect(0, 0, cw, ch);
+            fwAnimationId = null;
+            return;
+        }
+
+        fwAnimationId = requestAnimationFrame(renderFrame);
+    }
+
+    fwAnimationId = requestAnimationFrame(renderFrame);
+}
+
 function buatConfetti() {
     const colors = [
-        '#ff6b81', '#ffb6c1', '#a55eea', '#6c5ce7', '#ffd700',
-        '#ff9ff3', '#f368e0', '#ffffff', '#00d2d3', '#ff6348',
-        '#7bed9f', '#ffa502', '#ff4757', '#2ed573', '#eccc68',
-        '#ff7eb3', '#c56cf0', '#17c0eb', '#ffc312'
+        '#ff6b81', '#ffb6c1', '#a55eea', '#ffd700',
+        '#ff9ff3', '#ffffff', '#ff7eb3', '#c56cf0'
     ];
-    const shapes = ['circle', 'rect', 'star', 'heart', 'ribbon'];
-    const animStyles = ['', 'confetti-swirl', 'confetti-zigzag'];
+    const shapes = ['circle', 'rect', 'heart', 'ribbon'];
+    const animStyles = ['', 'confetti-swirl'];
 
+    // Jumlah elemen DOM confetti dikurangi agar berpadu mulus dengan kembang api tanpa lag
     function burstWave(count, delayBase) {
+        const fragment = document.createDocumentFragment();
+        const created = [];
+
         for (let i = 0; i < count; i++) {
             const confetti = document.createElement('div');
             confetti.classList.add('confetti-piece');
@@ -1171,22 +1403,18 @@ function buatConfetti() {
             const color = colors[Math.floor(Math.random() * colors.length)];
             const shape = shapes[Math.floor(Math.random() * shapes.length)];
             const animStyle = animStyles[Math.floor(Math.random() * animStyles.length)];
-            const size = 5 + Math.random() * 10;
+            const size = 5 + Math.random() * 8;
 
             if (animStyle) confetti.classList.add(animStyle);
 
-            if (shape === 'star') {
-                confetti.classList.add('confetti-star');
-                confetti.textContent = '⭐';
-                confetti.style.fontSize = (10 + Math.random() * 8) + 'px';
-            } else if (shape === 'heart') {
+            if (shape === 'heart') {
                 confetti.classList.add('confetti-heart');
                 confetti.textContent = '💖';
-                confetti.style.fontSize = (8 + Math.random() * 8) + 'px';
+                confetti.style.fontSize = (9 + Math.random() * 6) + 'px';
             } else if (shape === 'ribbon') {
                 confetti.classList.add('confetti-ribbon');
-                confetti.style.width = (3 + Math.random() * 4) + 'px';
-                confetti.style.height = (14 + Math.random() * 12) + 'px';
+                confetti.style.width = (3 + Math.random() * 3) + 'px';
+                confetti.style.height = (12 + Math.random() * 10) + 'px';
                 confetti.style.background = color;
                 confetti.style.borderRadius = '1px';
             } else if (shape === 'rect') {
@@ -1201,26 +1429,150 @@ function buatConfetti() {
                 confetti.style.borderRadius = '50%';
             }
 
-            // Wider spread across the entire screen
             confetti.style.left = (5 + Math.random() * 90) + 'vw';
             confetti.style.top = '-15px';
-            confetti.style.animationDuration = (2.5 + Math.random() * 3) + 's';
-            confetti.style.animationDelay = (delayBase + Math.random() * 1.2) + 's';
+            confetti.style.animationDuration = (2.6 + Math.random() * 2.4) + 's';
+            confetti.style.animationDelay = (delayBase + Math.random() * 1.0) + 's';
 
-            document.body.appendChild(confetti);
-
-            setTimeout(() => {
-                confetti.remove();
-            }, 8000 + delayBase * 1000);
+            fragment.appendChild(confetti);
+            created.push(confetti);
         }
+
+        document.body.appendChild(fragment);
+        setTimeout(() => {
+            created.forEach(el => el.remove());
+        }, 6500);
     }
 
-    // Gelombang 1: Ledakan utama
-    burstWave(60, 0);
+    burstWave(28, 0);
+    setTimeout(() => burstWave(22, 0), 1100);
+}
 
-    // Gelombang 2: Ledakan kedua setelah 0.8 detik
-    setTimeout(() => burstWave(50, 0), 800);
+// ==========================================
+// FITUR "A LETTER FOR U" (BOTOL KACA & SURAT)
+// ==========================================
+let sedangAnimasiSurat = false;
 
-    // Gelombang 3: Hujan confetti lanjutan
-    setTimeout(() => burstWave(40, 0), 2000);
+function munculkanPartikelBotol() {
+    const container = document.getElementById('bottle-pop-sparkles');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const items = ['✨', '♡', '🌸', '✨', '💕', '✦', '🤍', '✨'];
+    items.forEach((simbol, idx) => {
+        const span = document.createElement('span');
+        span.className = 'pop-sparkle-item';
+        span.textContent = simbol;
+
+        const angle = (-150 + (idx / (items.length - 1)) * 120) * (Math.PI / 180);
+        const distance = 45 + Math.random() * 45;
+        const tx = Math.round(Math.cos(angle) * distance) + 'px';
+        const ty = Math.round(Math.sin(angle) * distance - 25) + 'px';
+        const rot = Math.round(-40 + Math.random() * 80) + 'deg';
+
+        span.style.setProperty('--tx', tx);
+        span.style.setProperty('--ty', ty);
+        span.style.setProperty('--rot', rot);
+        span.style.animationDelay = (idx * 35) + 'ms';
+
+        container.appendChild(span);
+    });
+}
+
+function bukaSuratBotol() {
+    if (sedangAnimasiSurat) return;
+    sedangAnimasiSurat = true;
+
+    const bottleStage = document.getElementById('bottle-stage');
+    const bottleScene = document.getElementById('bottle-scene');
+    const bottleCork = document.getElementById('bottle-cork');
+    const rolledScroll = document.getElementById('rolled-scroll');
+    const bottleHint = document.getElementById('bottle-hint');
+    const letterWrapper = document.getElementById('letter-paper-wrapper');
+
+    if (!bottleStage || !bottleScene || !bottleCork || !rolledScroll || !letterWrapper) {
+        sedangAnimasiSurat = false;
+        return;
+    }
+
+    // 1. Botol bergoyang lembut & sembunyikan teks petunjuk
+    if (bottleHint) bottleHint.style.opacity = '0';
+    bottleScene.classList.add('opening-wiggle');
+    rolledScroll.classList.add('scroll-straighten');
+
+    // 2. Tutup botol terbuka (pop!) disertai partikel kecil
+    setTimeout(() => {
+        bottleCork.classList.add('cork-popped');
+        munculkanPartikelBotol();
+    }, 320);
+
+    // 3. Gulungan surat meluncur keluar dari leher botol
+    setTimeout(() => {
+        rolledScroll.classList.remove('scroll-straighten');
+        rolledScroll.classList.add('scroll-rising');
+    }, 820);
+
+    // 4. Botol memudar halus, lalu gulungan surat mulai terbuka perlahan
+    setTimeout(() => {
+        bottleStage.classList.add('bottle-hiding');
+    }, 1500);
+
+    setTimeout(() => {
+        bottleStage.style.display = 'none';
+        letterWrapper.style.display = 'block';
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                letterWrapper.classList.add('visible');
+
+                // Buka gulungan surat secara perlahan setelah muncul
+                setTimeout(() => {
+                    letterWrapper.classList.add('unrolled');
+                    sedangAnimasiSurat = false;
+                }, 180);
+            });
+        });
+    }, 1980);
+}
+
+function tutupSuratBotol() {
+    if (sedangAnimasiSurat) return;
+    sedangAnimasiSurat = true;
+
+    const bottleStage = document.getElementById('bottle-stage');
+    const bottleScene = document.getElementById('bottle-scene');
+    const bottleCork = document.getElementById('bottle-cork');
+    const rolledScroll = document.getElementById('rolled-scroll');
+    const bottleHint = document.getElementById('bottle-hint');
+    const letterWrapper = document.getElementById('letter-paper-wrapper');
+
+    if (!bottleStage || !letterWrapper) {
+        sedangAnimasiSurat = false;
+        return;
+    }
+
+    // Gulung kembali surat secara perlahan terlebih dahulu
+    letterWrapper.classList.remove('unrolled');
+
+    setTimeout(() => {
+        letterWrapper.classList.remove('visible');
+    }, 1450);
+
+    setTimeout(() => {
+        letterWrapper.style.display = 'none';
+
+        // Reset kondisi botol ke awal
+        if (bottleScene) bottleScene.classList.remove('opening-wiggle');
+        if (bottleCork) bottleCork.classList.remove('cork-popped');
+        if (rolledScroll) rolledScroll.classList.remove('scroll-straighten', 'scroll-rising');
+        if (bottleHint) bottleHint.style.opacity = '';
+
+        bottleStage.style.display = 'flex';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                bottleStage.classList.remove('bottle-hiding');
+                sedangAnimasiSurat = false;
+            });
+        });
+    }, 1900);
 }
